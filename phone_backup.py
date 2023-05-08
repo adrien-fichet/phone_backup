@@ -10,18 +10,63 @@
 import sys
 import ADBSync
 from pathlib import Path
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 
 
 ADB = Path.home() / "Documents" / "platform-tools" / "adb"
+
+WHATSAPP_EXCLUDES = (".Shared", ".StickerThumbs", ".trash", "Backups", "Databases")
+
+ROOT_SDCARD_1 = "/sdcard"
+ROOT_SDCARD_2 = "/storage/3839-3938"
+
+
+class DirToBackup:
+    path: str
+    _excludes: tuple[str]
+    root: str
+
+    def __init__(self, path: str, excludes: tuple[str, ...] = (), root: str = ROOT_SDCARD_1):
+        self.path = path
+        self._excludes = excludes
+        self.root = root
+
+    @property
+    def excludes(self) -> str:
+        return " ".join([f"--exclude={exclude}" for exclude in self._excludes])
+
+    @property
+    def full_path(self) -> str:
+        return f"{self.root}/{self.path}"
+
+
+DIRS_TO_BACKUP: tuple[DirToBackup, ...] = (
+    DirToBackup(path="Movies", excludes=(".thumbnails", "VideoVolumeBooster")),
+    DirToBackup(path="Sounds", excludes=(".backup",)),
+
+    DirToBackup(path="Pictures", excludes=(".Gallery2", ".thumbnails")),
+    DirToBackup(path="Pictures", excludes=(".Gallery2", ".thumbnails"), root=ROOT_SDCARD_2),
+
+    DirToBackup(path="Download", excludes=(".org.chromium*", ".com.google.Chrome*")),
+
+    DirToBackup(path="DCIM", excludes=(".thumbnails",)),
+    DirToBackup(path="DCIM", excludes=(".thumbnails",), root=ROOT_SDCARD_2),
+
+    DirToBackup(path="Android/media/com.whatsapp/Whatsapp", excludes=WHATSAPP_EXCLUDES),
+    DirToBackup(path="WhatsApp", excludes=WHATSAPP_EXCLUDES),
+)
 
 
 def log(msg: str):
     print(f"--> {msg}")
 
 
-def backup_directory(phone_serial: str) -> Path:
-    backup_dir = Path.home() / "phone_backup" / phone_serial
+def create_backup_directory(phone_serial: str, dir_to_backup: DirToBackup) -> Path:
+    sdcard = 1
+    if dir_to_backup.root == ROOT_SDCARD_2:
+        sdcard = 2
+
+    backup_dir = Path.home() / "phone_backup" / phone_serial / f"sdcard-{sdcard}"
     Path.mkdir(backup_dir, exist_ok=True)
     log(f"Using backup directory {backup_dir}")
     return backup_dir
@@ -33,56 +78,55 @@ def get_serial_of_connected_device() -> str:
     print(output.replace("\n\n", "\n"), end="")
 
     phone_serial = None
+    device_info = ""
     for line in output.split("\n"):
         if "device usb" in line:
-            phone_serial = line.split()[0]
+            line_split = line.split()
+            phone_serial, device_info = line_split[0], " ".join(line_split[1:])
 
     if phone_serial is None:
-        raise Exception("Error: no device found")
+        raise Exception("no device found")
 
-    if "unauthorized" in output:
-        raise Exception("Error: device unauthorized")
+    if "unauthorized" in device_info:
+        raise Exception("device unauthorized")
 
     log(f"Using phone serial {phone_serial}")
     return phone_serial
 
 
-def main():
-    phone_serial = get_serial_of_connected_device() 
-    backup_dir = backup_directory(phone_serial)
+def dir_exists_on_phone(dir_to_backup: DirToBackup) -> bool:
+    try:
+        check_output(f"'{ADB}' shell ls -d {dir_to_backup.full_path}", shell=True)
+    except CalledProcessError:
+        return False
+    return True
 
-    dirs_to_backup: tuple[DirToBackup, ...] = (
-        DirToBackup(path="Movies", excludes=(".thumbnails", "VideoVolumeBooster")),
-        DirToBackup(path="Sounds", excludes=(".backup",)),
-        DirToBackup(path="Pictures", excludes=(".Gallery2", ".thumbnails")),
-        DirToBackup(path="Download", excludes=(".org.chromium*", ".com.google.Chrome*")),
-        DirToBackup(path="DCIM", excludes=(".thumbnails",)),
-        DirToBackup(
-            path="Android/media/com.whatsapp/Whatsapp", 
-            excludes=(".Shared", ".StickerThumbs", ".trash", "Backups", "Databases")
-        ),
-    )
+
+def backup_phone_dir(phone_serial: str, dir_to_backup: DirToBackup):
+    if not dir_exists_on_phone(dir_to_backup):
+        log(f"{dir_to_backup.full_path} does not exist on this phone, skipping it")
+        return
+
+    backup_dir = create_backup_directory(phone_serial, dir_to_backup)
+
+    log(f"Syncing {dir_to_backup.full_path} to {backup_dir}")
+    adbsync_options = f"--adb-bin {ADB} {dir_to_backup.excludes} -q --show-progress"
+    sys.argv.extend(f"{adbsync_options} pull {dir_to_backup.full_path} {backup_dir}".split())
+    ADBSync.main()
+
+
+def main():
+    try:
+        phone_serial = get_serial_of_connected_device() 
+    except Exception as e:
+        log(f"Error: {str(e)}, exiting")
+        return
 
     sys_argv_original = list(sys.argv)
-    for dir_to_backup in dirs_to_backup:
-        log(f"Syncing {dir_to_backup.path}")
-        adbsync_options = f"--adb-bin {ADB} {dir_to_backup.excludes} -q --show-progress"
-        sys.argv.extend(f"{adbsync_options} pull /sdcard/{dir_to_backup.path} {backup_dir}".split())
-        ADBSync.main()
+
+    for dir_to_backup in DIRS_TO_BACKUP:
+        backup_phone_dir(phone_serial, dir_to_backup) 
         sys.argv = list(sys_argv_original)
-
-
-class DirToBackup:
-    path: str
-    _excludes: tuple[str]
-
-    def __init__(self, path: str, excludes: tuple[str, ...] = ()):
-        self.path = path
-        self._excludes = excludes
-
-    @property
-    def excludes(self):
-        return " ".join([f"--exclude={exclude}" for exclude in self._excludes])
 
 
 if __name__ == "__main__":

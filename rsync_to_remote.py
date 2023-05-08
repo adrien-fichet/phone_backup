@@ -1,7 +1,12 @@
 #-*- coding:utf-8 -*-
+
 from subprocess import call
 from pathlib import Path
-from vars import SSH_USER, SSH_PASSWORD_FILE, SSH_HOST
+from vars import (
+    SSH_USER,
+    SSH_PASSWORD_FILE,  # a Path object to the ssh password file
+    SSH_HOST
+)
 
 
 def main():
