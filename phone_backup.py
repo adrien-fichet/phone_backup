@@ -1,5 +1,8 @@
 #-*- coding:utf-8 -*-
 """
+Usage:
+python3 -u phone_backup.py
+
 - ADB documentation: https://developer.android.com/studio/command-line/adb
 - Download the Android platform tools from: https://developer.android.com/studio/releases/platform-tools
 - Ensure that USB debugging is enabled on the phone (in developer options)
@@ -15,7 +18,7 @@ from subprocess import check_output, CalledProcessError
 
 ADB = Path.home() / "Documents" / "platform-tools" / "adb"
 
-WHATSAPP_EXCLUDES = (".Shared", ".StickerThumbs", ".trash", "Backups", "Databases")
+WHATSAPP_EXCLUDES = (".Shared", ".StickerThumbs", ".trash", "Backups", "Databases", "Media/.Statuses", ".Thumbs")
 
 ROOT_SDCARD_1 = "/sdcard"
 ROOT_SDCARD_2 = "/storage/3839-3938"
@@ -104,7 +107,7 @@ def dir_exists_on_phone(dir_to_backup: DirToBackup) -> bool:
 
 def backup_phone_dir(phone_serial: str, dir_to_backup: DirToBackup):
     if not dir_exists_on_phone(dir_to_backup):
-        log(f"{dir_to_backup.full_path} does not exist on this phone, skipping it")
+        log(f"The following directory does not exist on this phone, skipping it: {dir_to_backup.full_path}")
         return
 
     backup_dir = create_backup_directory(phone_serial, dir_to_backup)
