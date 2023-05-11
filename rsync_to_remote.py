@@ -1,12 +1,12 @@
 #-*- coding:utf-8 -*-
 """
 Usage:
-PHONE_BACKUP_SSH_HOST="remote-server.url" python3 -u rsync_to_remote.py
+PHONE_BACKUP_SSH_HOST="my-ssh-server" python3 -u rsync_to_remote.py
 
 The remote ssh server access is expected to be configured in ~/.ssh/config, for instance:
-Host remote-server.url
+Host my-ssh-server
   IdentityFile /path/to/password-protected/ssh/private/key
-  User myuser
+  User my-user
 """
 
 import sys
