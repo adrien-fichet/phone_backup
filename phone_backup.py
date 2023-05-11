@@ -16,7 +16,7 @@ from pathlib import Path
 from subprocess import check_output, CalledProcessError
 
 
-ADB = Path.home() / "Documents" / "platform-tools" / "adb"
+ADB = Path.home() / "android" / "platform-tools" / "adb"
 
 WHATSAPP_EXCLUDES = (".Shared", ".StickerThumbs", ".trash", "Backups", "Databases", "Media/.Statuses", ".Thumbs")
 
