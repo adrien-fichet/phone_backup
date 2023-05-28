@@ -70,7 +70,7 @@ def create_backup_directory(phone_serial: str, dir_to_backup: DirToBackup) -> Pa
         sdcard = 2
 
     backup_dir = Path.home() / "phone_backup" / phone_serial / f"sdcard-{sdcard}"
-    Path.mkdir(backup_dir, exist_ok=True)
+    Path.mkdir(backup_dir, exist_ok=True, parents=True)
     log(f"Using backup directory {backup_dir}")
     return backup_dir
 
