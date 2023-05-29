@@ -72,18 +72,34 @@ class AndroidFileSystem(FileSystem):
     def __init__(self, adb_arguments: List[str], adb_encoding: str) -> None:
         super().__init__(adb_arguments)
         self.adb_encoding = adb_encoding
+        """
         self.proc_adb_shell = subprocess.Popen(
             self.adb_arguments + ["shell"],
             stdin = subprocess.PIPE,
             stdout = subprocess.PIPE,
             stderr = subprocess.STDOUT
         )
+        """
 
     def __del__(self):
+        """
         self.proc_adb_shell.stdin.close()
         self.proc_adb_shell.wait()
+        """
+        pass
 
     def adb_shell(self, commands: List[str]) -> Iterator[str]:
+        res = subprocess.run(
+            " ".join(self.adb_arguments + ["shell"] + commands), 
+            shell=True, 
+            capture_output=True, 
+            encoding=self.adb_encoding
+        )
+        res = res.stdout.splitlines()
+        for line in res:
+            yield line
+
+        """
         self.proc_adb_shell.stdin.write(" ".join(commands).encode(self.adb_encoding))
         self.proc_adb_shell.stdin.write("\n".encode(self.adb_encoding))
         self.proc_adb_shell.stdin.write(f"echo \"{self.ADBSYNC_END_OF_COMMAND}\"\n".encode(self.adb_encoding))
@@ -98,6 +114,7 @@ class AndroidFileSystem(FileSystem):
                 lines_to_yield.append(adb_line)
         for line in lines_to_yield:
             yield line
+        """
 
     def line_not_captured(self, line: str) -> NoReturn:
         logging.critical("ADB line not captured")
@@ -106,7 +123,7 @@ class AndroidFileSystem(FileSystem):
     def escape_path(self, path: str) -> str:
         for replacement in self.ESCAPE_PATH_REPLACEMENTS:
             path = path.replace(*replacement)
-        return path
+        return f"'{path}'"
 
     def test_connection(self):
         for line in self.adb_shell([":"]):

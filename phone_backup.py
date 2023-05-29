@@ -13,7 +13,7 @@ python3 -u phone_backup.py
 import sys
 import ADBSync
 from pathlib import Path
-from subprocess import check_output, CalledProcessError
+import subprocess
 
 
 ADB = Path.home() / "android" / "platform-tools" / "adb"
@@ -71,21 +71,27 @@ def create_backup_directory(phone_serial: str, dir_to_backup: DirToBackup) -> Pa
 
     backup_dir = Path.home() / "phone_backup" / phone_serial / f"sdcard-{sdcard}"
     Path.mkdir(backup_dir, exist_ok=True, parents=True)
-    log(f"Using backup directory {backup_dir}")
     return backup_dir
 
 
 def get_serial_of_connected_device() -> str:
     log("Listing devices")
-    output = check_output(f"'{ADB}' devices -l", shell=True).decode()
+    output = subprocess.run(
+        f"'{ADB}' devices -l",
+        shell=True, 
+        capture_output=True, 
+        encoding="utf-8", 
+        check=True
+    ).stdout
     print(output.replace("\n\n", "\n"), end="")
 
     phone_serial = None
     device_info = ""
     for line in output.split("\n"):
-        if "device usb" in line:
+        if "usb:" in line:
             line_split = line.split()
             phone_serial, device_info = line_split[0], " ".join(line_split[1:])
+            break
 
     if phone_serial is None:
         raise Exception("no device found")
@@ -99,9 +105,19 @@ def get_serial_of_connected_device() -> str:
 
 def dir_exists_on_phone(dir_to_backup: DirToBackup) -> bool:
     try:
-        check_output(f"'{ADB}' shell ls -d {dir_to_backup.full_path}", shell=True)
-    except CalledProcessError:
+        res = subprocess.run(
+            f"'{ADB}' shell ls -d {dir_to_backup.full_path}", 
+            shell=True, 
+            capture_output=True, 
+            encoding="utf-8", 
+            check=True
+        ).stdout
+    except subprocess.CalledProcessError:
         return False
+    
+    if "No such file or directory" in res:
+        return False
+
     return True
 
 
