@@ -18,7 +18,7 @@ import subprocess
 
 ADB = Path.home() / "android" / "platform-tools" / "adb"
 
-WHATSAPP_EXCLUDES = (".Shared", ".StickerThumbs", ".trash", "Backups", "Databases", "Media/.Statuses", ".Thumbs")
+WHATSAPP_EXCLUDES = (".Shared", ".StickerThumbs", ".trash", "Backups", "Databases", "Media/.Statuses", "Media/.Links", ".Thumbs", "WhatsApp Voice Notes")
 
 ROOT_SDCARD_1 = "/sdcard"
 ROOT_SDCARD_2 = "/storage/3839-3938"
@@ -35,8 +35,8 @@ class DirToBackup:
         self.root = root
 
     @property
-    def excludes(self) -> str:
-        return " ".join([f"--exclude={exclude}" for exclude in self._excludes])
+    def excludes(self) -> list[str]:
+        return [f"--exclude={exclude}" for exclude in self._excludes]
 
     @property
     def full_path(self) -> str:
@@ -52,7 +52,7 @@ DIRS_TO_BACKUP: tuple[DirToBackup, ...] = (
 
     DirToBackup(path="Download", excludes=(".org.chromium*", ".com.google.Chrome*")),
 
-    DirToBackup(path="DCIM", excludes=(".thumbnails",)),
+    DirToBackup(path="DCIM", excludes=(".thumbnails", "thumbnails")),
     DirToBackup(path="DCIM", excludes=(".thumbnails",), root=ROOT_SDCARD_2),
 
     DirToBackup(path="Android/media/com.whatsapp/Whatsapp", excludes=WHATSAPP_EXCLUDES),
@@ -129,8 +129,8 @@ def backup_phone_dir(phone_serial: str, dir_to_backup: DirToBackup):
     backup_dir = create_backup_directory(phone_serial, dir_to_backup)
 
     log(f"Syncing {dir_to_backup.full_path} to {backup_dir}")
-    adbsync_options = f"--adb-bin {ADB} {dir_to_backup.excludes} -q --show-progress"
-    sys.argv.extend(f"{adbsync_options} pull {dir_to_backup.full_path} {backup_dir}".split())
+    adbsync_options = ["--adb-bin", str(ADB), "-q", "--show-progress"]
+    sys.argv.extend(adbsync_options + dir_to_backup.excludes + ["pull", dir_to_backup.full_path, str(backup_dir)])
     ADBSync.main()
 
 
